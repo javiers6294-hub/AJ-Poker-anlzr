@@ -13,7 +13,7 @@
         .btn-pay-container { margin: 25px 0; padding: 25px; border: 1px dashed #444; border-radius: 10px; background: rgba(255,255,255,0.02); min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         
         /* Botón de Pago Estilo Stripe */
-        .stripe-button { background-color: #635bff; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-weight: 600; cursor: pointer; transition: filter 0.2s; width: 100%; }
+        .stripe-button { background-color: #635bff; color: white; border: none; padding: 14px 24px; border-radius: 4px; font-weight: 600; cursor: pointer; transition: filter 0.2s; width: 100%; font-size: 14px; }
         .stripe-button:hover { filter: brightness(1.1); }
         .stripe-button:disabled { background-color: #444; cursor: not-allowed; }
 
@@ -26,6 +26,8 @@
         
         .manage-link { color: #666; text-decoration: none; font-size: 12px; transition: 0.2s; font-weight: bold; }
         .manage-link:hover { color: var(--accent); }
+
+        .trial-badge { color: var(--accent); font-weight: bold; font-size: 14px; margin-bottom: 5px; text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -38,11 +40,15 @@
     </div>
 
     <div id="payment-section" style="display:none;" class="btn-pay-container">
-        <p style="margin-top:0; font-weight:bold; font-size: 14px; margin-bottom: 15px;">Suscripción requerida</p>
+        <div class="trial-badge">🎁 2 Días de Prueba Gratis</div>
+        <p style="margin-top:0; font-size: 12px; margin-bottom: 15px; color: #aaa;">
+            Suscríbete ahora y comienza a usar el Lab sin costo hoy mismo.
+        </p>
+        
         <div id="checkout-container" style="width: 100%;">
-            <div id="sync-msg" class="loading-text">Vinculando cuenta única...</div>
+            <div id="sync-msg" class="loading-text">Vinculando cuenta única con Stripe...</div>
             <button id="checkout-btn" class="stripe-button" style="display:none;" onclick="handleCheckout()">
-                Comenzar Suscripción
+                Comenzar Prueba Gratuita
             </button>
         </div>
     </div>
@@ -63,32 +69,39 @@
         await Clerk.load();
         
         if (!Clerk.user) {
+            // Si no hay usuario, monta el formulario de inicio de sesión
             Clerk.mountSignIn(document.getElementById('auth-content'));
         } else {
+            // Si hay usuario, verifica suscripción e ID de Stripe
             checkStatus();
         }
     });
 
     async function checkStatus() {
+        // Recarga metadatos para obtener el stripeCustomerId del webhook
         await Clerk.user.reload();
         const { status, stripeCustomerId } = Clerk.user.publicMetadata;
 
         document.getElementById('auth-content').innerHTML = `<h3>Hola, ${Clerk.user.firstName}</h3>`;
         Clerk.mountUserButton(document.getElementById('user-button'), { afterSignOutUrl: window.location.href });
 
+        // 1. Acceso concedido si ya tiene suscripción o está en trial activo
         if (status === 'active') {
-            document.getElementById('auth-content').innerHTML += "<p style='color:#2ecc71; font-weight:bold;'>Acceso Concedido ✓</p>";
+            document.getElementById('auth-content').innerHTML += "<p style='color:#2ecc71; font-weight:bold;'>Suscripción Activa ✓</p>";
             setTimeout(() => { window.location.href = 'app.html'; }, 1500);
             return;
         }
 
+        // 2. Mostrar sección de pago y gestión
         document.getElementById('payment-section').style.display = 'flex';
         document.getElementById('manage-area').style.display = 'block';
 
+        // 3. Solo habilitar el botón si ya tenemos el ID de Stripe vinculado
         if (stripeCustomerId) {
             document.getElementById('sync-msg').style.display = 'none';
             document.getElementById('checkout-btn').style.display = 'block';
         } else {
+            // Si el webhook aún no termina, reintenta en 2 segundos
             setTimeout(checkStatus, 2000);
         }
     }
@@ -96,9 +109,10 @@
     async function handleCheckout() {
         const btn = document.getElementById('checkout-btn');
         btn.disabled = true;
-        btn.innerText = "Redirigiendo a Stripe...";
+        btn.innerText = "Cargando pasarela segura...";
 
         try {
+            // Llama a tu función de servidor para crear la sesión de Checkout ligada al cliente
             const response = await fetch('/api/create-checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -107,14 +121,15 @@
 
             const data = await response.json();
             if (data.url) {
+                // Redirige al checkout oficial de Stripe con el customerId inyectado
                 window.location.href = data.url;
             } else {
                 throw new Error(data.error || "Error al crear la sesión");
             }
         } catch (err) {
-            alert(err.message);
+            alert("Error: " + err.message);
             btn.disabled = false;
-            btn.innerText = "Comenzar Suscripción";
+            btn.innerText = "Comenzar Prueba Gratuita";
         }
     }
 </script>
