@@ -9,31 +9,37 @@ export default async function handler(req, res) {
 
   const { clerkId } = req.body;
 
-  // 1. Obtener el usuario de Clerk para sacar su stripeCustomerId
-  const user = await clerkClient.users.getUser(clerkId);
-  const stripeCustomerId = user.publicMetadata.stripeCustomerId;
-
-  if (!stripeCustomerId) {
-    return res.status(400).json({ error: "El usuario no tiene un ID de Stripe vinculado." });
-  }
-
   try {
-    // 2. Crear la sesión de Checkout forzando el cliente existente
+    // 1. Obtener los metadatos del usuario de Clerk
+    const user = await clerkClient.users.getUser(clerkId);
+    const stripeCustomerId = user.publicMetadata.stripeCustomerId;
+
+    if (!stripeCustomerId) {
+      return res.status(400).json({ error: "No se encontró un ID de cliente vinculado. Por favor, recarga la página." });
+    }
+
+    // 2. Crear la sesión de Checkout
     const session = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId, // AQUÍ SE FUERZA LA UNICIDAD
+      customer: stripeCustomerId, // Aquí forzamos a usar el cliente ya creado
       payment_method_types: ['card'],
       line_items: [{
-        price: 'ID_DE_TU_PRECIO_EN_STRIPE', // Debes poner el ID de precio (price_...)
+        // REEMPLAZA EL TEXTO DE ABAJO POR TU ID REAL (Ejem: 'price_1Qrs...')
+        price: 'price_1SvLP9EqI6UldDzdVz6V9API', 
         quantity: 1,
       }],
       mode: 'subscription',
-      success_url: `${req.headers.origin}/app.html?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${req.headers.origin}/app.html`,
       cancel_url: `${req.headers.origin}/index.html`,
-      metadata: { clerkId } // Para que el webhook sepa a quién activar
+      // Permitir que el usuario use sus métodos de pago guardados
+      customer_update: {
+        address: 'auto',
+      },
+      metadata: { clerkId } // Clave para que el webhook sepa a quién activar
     });
 
     res.json({ url: session.url });
   } catch (error) {
+    console.error("Error en Checkout:", error);
     res.status(500).json({ error: error.message });
   }
 }
