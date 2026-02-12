@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <title>Acceso - Poker Lab Pro</title>
     <style>
-        :root { --accent: #f1c40f; --danger: #e74c3c; }
+        :root { --accent: #f1c40f; }
         body { background: #080808; color: white; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: #121212; padding: 40px; border-radius: 15px; border: 1px solid #333; text-align: center; max-width: 400px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
-        .btn-pay-container { margin: 25px 0; padding: 20px; border: 1px dashed #444; border-radius: 10px; background: rgba(255,255,255,0.02); }
+        .btn-pay-container { margin: 25px 0; padding: 20px; border: 1px dashed #444; border-radius: 10px; background: rgba(255,255,255,0.02); min-height: 100px; }
         #user-button { margin-top: 20px; display: flex; justify-content: center; }
         
-        #manage-area { margin-top: 25px; border-top: 1px solid #222; padding-top: 15px; min-height: 20px; }
+        #manage-area { margin-top: 25px; border-top: 1px solid #222; padding-top: 15px; }
         .loading-text { color: #666; font-size: 11px; font-style: italic; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .loading-text::after { content: ""; width: 10px; height: 10px; border: 2px solid #333; border-top: 2px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -29,16 +29,14 @@
         </div>
 
         <div id="payment-section" style="display:none;" class="btn-pay-container">
-            <p style="margin-top:0; font-weight:bold;">¡Suscríbete para comenzar!</p>
-            <stripe-buy-button 
-                buy-button-id="buy_btn_1SvLtdEqI6UldDzdYO4nwfJo" 
-                publishable-key="pk_live_51SubhvEqI6UldDzdLs9yssCFIRbva99l1tRMqee9YWok5WXN15szzV0mfTnPABmj0N6NFigfeAp8WXPURNx4wfeZ0050UNvray">
-            </stripe-buy-button>
+            <p id="pay-msg" style="margin-top:0; font-weight:bold;">¡Suscríbete para comenzar!</p>
+            <div id="stripe-button-container">
+                <div class="loading-text">Generando enlace de compra personalizado...</div>
+            </div>
         </div>
 
         <div id="manage-area" style="display:none;">
-            <div id="manage-loading" class="loading-text">Sincronizando portal de pagos...</div>
-            <a id="manage-link" href="https://billing.stripe.com/p/login/00w5kD9QDgYWbVp66o9fW00" target="_blank" class="manage-link" style="display:none;">
+            <a id="manage-link" href="https://billing.stripe.com/p/login/00w5kD9QDgYWbVp66o9fW00" target="_blank" class="manage-link">
                 ⚙️ Configuración de facturación / Cancelar
             </a>
         </div>
@@ -46,6 +44,7 @@
         <div id="user-button"></div>
     </div>
 
+    <script async src="https://js.stripe.com/v3/buy-button.js"></script>
     <script async crossorigin="anonymous" data-clerk-publishable-key="pk_test_bmV4dC1tYWtvLTEuY2xlcmsuYWNjb3VudHMuZGV2JA" src="https://next-mako-1.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js" type="text/javascript"></script>
 
     <script>
@@ -59,31 +58,45 @@
         });
 
         async function checkStatus() {
-            await Clerk.user.reload(); //
+            await Clerk.user.reload();
             const { status, stripeCustomerId } = Clerk.user.publicMetadata;
 
             document.getElementById('auth-content').innerHTML = `<h3>Bienvenido, ${Clerk.user.firstName}</h3>`;
             Clerk.mountUserButton(document.getElementById('user-button'));
 
-            // Caso 1: Ya pagó
+            // Caso 1: Acceso concedido
             if (status === 'active') {
                 document.getElementById('auth-content').innerHTML += "<p style='color:#2ecc71'>Suscripción Activa ✓</p>";
                 setTimeout(() => { window.location.href = 'app.html'; }, 1500);
                 return;
             }
 
-            // Caso 2: No ha pagado, mostrar botón de compra
-            document.getElementById('payment-section').style.display = 'block';
-            document.getElementById('manage-area').style.display = 'block';
-
-            // Mostrar el link de gestión solo si ya existe el cliente en Stripe
+            // Caso 2: Esperar al ID de Stripe para mostrar el botón ligado
             if (stripeCustomerId) {
-                document.getElementById('manage-loading').style.display = 'none';
-                document.getElementById('manage-link').style.display = 'inline-block';
+                renderBuyButton(stripeCustomerId);
+                document.getElementById('payment-section').style.display = 'block';
+                document.getElementById('manage-area').style.display = 'block';
             } else {
-                // Reintento automático hasta que el Webhook cree el usuario
-                setTimeout(checkStatus, 2500);
+                // Si el ID no existe aún (el webhook está trabajando), reintentamos
+                document.getElementById('payment-section').style.display = 'block';
+                document.getElementById('stripe-button-container').innerHTML = '<div class="loading-text">Vinculando cuenta con Stripe...</div>';
+                setTimeout(checkStatus, 2000);
             }
+        }
+
+        function renderBuyButton(customerId) {
+            const container = document.getElementById('stripe-button-container');
+            // Solo lo creamos si no existe ya
+            if (container.querySelector('stripe-buy-button')) return;
+
+            const buyButton = document.createElement('stripe-buy-button');
+            buyButton.setAttribute('buy-button-id', 'buy_btn_1SvLtdEqI6UldDzdYO4nwfJo');
+            buyButton.setAttribute('publishable-key', 'pk_live_51SubhvEqI6UldDzdLs9yssCFIRbva99l1tRMqee9YWok5WXN15szzV0mfTnPABmj0N6NFigfeAp8WXPURNx4wfeZ0050UNvray');
+            // ESTA ES LA CLAVE: Asociamos el pago al cliente existente
+            buyButton.setAttribute('customer-id', customerId);
+
+            container.innerHTML = ''; // Limpiar el "Cargando..."
+            container.appendChild(buyButton);
         }
     </script>
 </body>
