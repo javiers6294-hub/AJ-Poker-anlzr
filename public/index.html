@@ -4,29 +4,48 @@
     <meta charset="UTF-8">
     <title>Acceso - Poker Lab Pro</title>
     <style>
-        body { background: #080808; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: #121212; padding: 40px; border-radius: 15px; border: 1px solid #f1c40f; text-align: center; max-width: 400px; }
-        .btn-pay { background: #635bff; color: white; padding: 12px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; display: none; margin-top: 20px; }
-        #user-button { margin-top: 20px; }
+        :root { --accent: #f1c40f; }
+        body { background: #080808; color: white; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #121212; padding: 40px; border-radius: 15px; border: 1px solid #333; text-align: center; max-width: 400px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        /* Spinner de Carga */
+        .loader { border: 4px solid #1a1a1a; border-top: 4px solid var(--accent); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .btn-pay { margin-top: 20px; display: block; }
+        #user-button { margin-top: 20px; display: flex; justify-content: center; }
+        .status-msg { font-size: 14px; color: #888; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1 style="color:#f1c40f">POKER LAB PRO</h1>
-        <div id="auth-content">Cargando...</div>
-        <div id="user-button"></div>
-        
-        <div id="payment-section" style="display:none;">
-            <p>Requiere suscripción activa para acceder.</p>
-            <stripe-buy-button 
-                buy-button-id="buy_btn_1SvLtdEqI6UldDzdYO4nwfJo" 
-                publishable-key="pk_live_51SubhvEqI6UldDzdLs9yssCFIRbva99l1tRMqee9YWok5WXN15szzV0mfTnPABmj0N6NFigfeAp8WXPURNx4wfeZ0050UNvray">
-            </stripe-buy-button>
+        <h1 style="color:var(--accent); margin-bottom: 5px;">POKER LAB PRO</h1>
+        <div id="auth-content">
+            <div class="loader"></div>
         </div>
 
-        <div id="manage-subscription" style="display:none; margin-top:20px;">
-            <a href="https://billing.stripe.com/p/login/00w5kD9QDgYWbVp66o9fW00" target="_blank" style="color:#888; font-size:12px;">Gestionar Suscripción / Cancelar</a>
+        <div id="loading-stripe" style="display:none;">
+            <div class="loader"></div>
+            <p class="status-msg">Sincronizando con Stripe...</p>
         </div>
+        
+        <div id="payment-section" style="display:none;">
+            <p>Suscripción requerida para acceder al Lab.</p>
+            <div class="btn-pay">
+                <stripe-buy-button 
+                    buy-button-id="buy_btn_1SvLtdEqI6UldDzdYO4nwfJo" 
+                    publishable-key="pk_live_51SubhvEqI6UldDzdLs9yssCFIRbva99l1tRMqee9YWok5WXN15szzV0mfTnPABmj0N6NFigfeAp8WXPURNx4wfeZ0050UNvray">
+                </stripe-buy-button>
+            </div>
+        </div>
+
+        <div id="manage-subscription" style="display:none; margin-top:25px; border-top: 1px solid #222; padding-top: 15px;">
+            <a href="https://billing.stripe.com/p/login/00w5kD9QDgYWbVp66o9fW00" target="_blank" style="color:var(--accent); text-decoration: none; font-size:13px; font-weight: bold;">
+                ⚙️ Gestionar Suscripción / Cancelar
+            </a>
+        </div>
+
+        <div id="user-button"></div>
     </div>
 
     <script async crossorigin="anonymous" data-clerk-publishable-key="pk_test_bmV4dC1tYWtvLTEuY2xlcmsuYWNjb3VudHMuZGV2JA" src="https://next-mako-1.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js" type="text/javascript"></script>
@@ -38,23 +57,41 @@
             if (!Clerk.user) {
                 Clerk.mountSignIn(document.getElementById('auth-content'));
             } else {
-                const status = Clerk.user.publicMetadata.status; // 'active' o undefined
-                const stripeId = Clerk.user.publicMetadata.stripeCustomerId;
-
-                if (status === 'active') {
-                    document.getElementById('auth-content').innerHTML = "<h3>Acceso Concedido</h3><p>Redirigiendo al Lab...</p>";
-                    setTimeout(() => { window.location.href = 'app.html'; }, 2000);
-                } else {
-                    document.getElementById('auth-content').innerHTML = "<h3>Hola, " + Clerk.user.firstName + "</h3>";
-                    document.getElementById('payment-section').style.display = 'block';
-                    Clerk.mountUserButton(document.getElementById('user-button'));
-                }
-
-                if (stripeId) {
-                    document.getElementById('manage-subscription').style.display = 'block';
-                }
+                checkStatus();
             }
         });
+
+        async function checkStatus() {
+            // 1. Forzar recarga de metadatos desde el servidor
+            await Clerk.user.reload();
+            
+            const metadata = Clerk.user.publicMetadata;
+            const status = metadata.status;
+            const stripeId = metadata.stripeCustomerId;
+
+            // Limpiar vista de carga inicial
+            document.getElementById('auth-content').innerHTML = `<h3>Hola, ${Clerk.user.firstName}</h3>`;
+            Clerk.mountUserButton(document.getElementById('user-button'));
+
+            // 2. Lógica de Redirección si ya pagó
+            if (status === 'active') {
+                document.getElementById('auth-content').innerHTML += "<p style='color:#2ecc71'>Acceso Concedido. Entrando...</p>";
+                setTimeout(() => { window.location.href = 'app.html'; }, 1500);
+                return;
+            }
+
+            // 3. Verificar si el Webhook ya creó el usuario en Stripe
+            if (stripeId) {
+                document.getElementById('loading-stripe').style.display = 'none';
+                document.getElementById('payment-section').style.display = 'block';
+                document.getElementById('manage-subscription').style.display = 'block';
+            } else {
+                // Si aún no hay Stripe ID, mostrar cargando y reintentar en 2 segundos
+                document.getElementById('loading-stripe').style.display = 'block';
+                document.getElementById('payment-section').style.display = 'none';
+                setTimeout(checkStatus, 2000);
+            }
+        }
     </script>
 </body>
 </html>
