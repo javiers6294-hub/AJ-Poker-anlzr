@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       customer: stripeCustomerId, 
       payment_method_types: ['card'],
       line_items: [{
-        price: 'TU_ID_DE_PRECIO_AQUÍ', // Reemplaza con tu price_...
+        price: 'price_1SvLP9EqI6UldDzdVz6V9API', // Reemplaza con tu price_...
         quantity: 1,
       }],
       mode: 'subscription',
