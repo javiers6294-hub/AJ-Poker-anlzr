@@ -8,27 +8,26 @@
         body { background: #080808; color: white; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: #121212; padding: 40px; border-radius: 15px; border: 1px solid #333; text-align: center; max-width: 400px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
-        /* Spinner de Carga */
-        .loader { border: 4px solid #1a1a1a; border-top: 4px solid var(--accent); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
         .btn-pay { margin-top: 20px; display: block; }
         #user-button { margin-top: 20px; display: flex; justify-content: center; }
-        .status-msg { font-size: 14px; color: #888; margin-top: 10px; }
+        
+        /* Estilo para el área de carga/gestión */
+        #manage-area { margin-top: 25px; border-top: 1px solid #222; padding-top: 15px; min-height: 20px; }
+        .loading-text { color: #666; font-size: 12px; font-style: italic; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .loading-text::after { content: ""; width: 12px; height: 12px; border: 2px solid #333; border-top: 2px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        #manage-link { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="card">
         <h1 style="color:var(--accent); margin-bottom: 5px;">POKER LAB PRO</h1>
+        
         <div id="auth-content">
-            <div class="loader"></div>
+            <p style="color: #666;">Iniciando sesión...</p>
         </div>
 
-        <div id="loading-stripe" style="display:none;">
-            <div class="loader"></div>
-            <p class="status-msg">Sincronizando con Stripe...</p>
-        </div>
-        
         <div id="payment-section" style="display:none;">
             <p>Suscripción requerida para acceder al Lab.</p>
             <div class="btn-pay">
@@ -39,8 +38,9 @@
             </div>
         </div>
 
-        <div id="manage-subscription" style="display:none; margin-top:25px; border-top: 1px solid #222; padding-top: 15px;">
-            <a href="https://billing.stripe.com/p/login/00w5kD9QDgYWbVp66o9fW00" target="_blank" style="color:var(--accent); text-decoration: none; font-size:13px; font-weight: bold;">
+        <div id="manage-area" style="display:none;">
+            <div id="manage-loading" class="loading-text">Vinculando con Stripe...</div>
+            <a id="manage-link" href="https://billing.stripe.com/p/login/00w5kD9QDgYWbVp66o9fW00" target="_blank" style="display:none;">
                 ⚙️ Gestionar Suscripción / Cancelar
             </a>
         </div>
@@ -62,33 +62,36 @@
         });
 
         async function checkStatus() {
-            // 1. Forzar recarga de metadatos desde el servidor
+            // Forzar actualización de datos de usuario para detectar cambios del webhook
             await Clerk.user.reload();
             
             const metadata = Clerk.user.publicMetadata;
             const status = metadata.status;
             const stripeId = metadata.stripeCustomerId;
 
-            // Limpiar vista de carga inicial
+            // Limpiar mensaje inicial y montar botón de perfil
             document.getElementById('auth-content').innerHTML = `<h3>Hola, ${Clerk.user.firstName}</h3>`;
             Clerk.mountUserButton(document.getElementById('user-button'));
 
-            // 2. Lógica de Redirección si ya pagó
+            // 1. Redirección si ya es suscriptor activo
             if (status === 'active') {
                 document.getElementById('auth-content').innerHTML += "<p style='color:#2ecc71'>Acceso Concedido. Entrando...</p>";
                 setTimeout(() => { window.location.href = 'app.html'; }, 1500);
                 return;
             }
 
-            // 3. Verificar si el Webhook ya creó el usuario en Stripe
+            // 2. Control del área de pago y gestión
+            document.getElementById('payment-section').style.display = 'block';
+            document.getElementById('manage-area').style.display = 'block';
+
             if (stripeId) {
-                document.getElementById('loading-stripe').style.display = 'none';
-                document.getElementById('payment-section').style.display = 'block';
-                document.getElementById('manage-subscription').style.display = 'block';
+                // Si el usuario de Stripe existe, ocultamos el "Cargando" y mostramos el link real
+                document.getElementById('manage-loading').style.display = 'none';
+                document.getElementById('manage-link').style.display = 'inline-block';
             } else {
-                // Si aún no hay Stripe ID, mostrar cargando y reintentar en 2 segundos
-                document.getElementById('loading-stripe').style.display = 'block';
-                document.getElementById('payment-section').style.display = 'none';
+                // Si aún no existe, forzamos reintento cada 2 segundos hasta que aparezca
+                document.getElementById('manage-loading').style.display = 'flex';
+                document.getElementById('manage-link').style.display = 'none';
                 setTimeout(checkStatus, 2000);
             }
         }
