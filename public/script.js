@@ -91,11 +91,12 @@ function update() {
 
     const body = document.getElementById('m-body'); body.innerHTML = "";
     
+    // RENDERIZADO DE GRUPOS (Con Trigger toggleGroup)
     userGroups.forEach((g, idx) => {
         const v1 = g.cats.reduce((a,c)=>a+stats.j1.c[c],0), v2 = g.cats.reduce((a,c)=>a+stats.j2.c[c],0);
         const p1 = stats.j1.t ? (v1/stats.j1.t*100).toFixed(1) : 0, p2 = stats.j2.t ? (v2/stats.j2.t*100).toFixed(1) : 0;
         body.innerHTML += `<tr style="background:rgba(241,196,15,0.07);">
-            <td><input type="checkbox" class="f-j1-g" data-idx="${idx}"></td>
+            <td><input type="checkbox" class="f-j1-g" data-idx="${idx}" onchange="toggleGroup(this,'j1',${idx})"></td>
             <td style="font-weight:bold; color:var(--j1);">${v1}</td>
             <td style="color:var(--accent); font-weight:bold; font-size:14px;">📁 ${g.name}</td>
             <td>
@@ -103,10 +104,11 @@ function update() {
                 <div class="bar-wrap bar-grp"><div class="bar-fill" style="width:${p2}%; background:#2980b9"></div><span class="bar-text">${v2} combos (${p2}%)</span></div>
             </td>
             <td style="font-weight:bold; color:var(--j2);">${v2}</td>
-            <td><input type="checkbox" class="f-j2-g" data-idx="${idx}"></td>
+            <td><input type="checkbox" class="f-j2-g" data-idx="${idx}" onchange="toggleGroup(this,'j2',${idx})"></td>
             <td onclick="userGroups.splice(${idx},1);update()" style="color:var(--danger); cursor:pointer; font-weight:bold; font-size:18px;">×</td></tr>`;
     });
 
+    // RENDERIZADO DE CATEGORIAS
     hierarchy.forEach(cat => {
         const c1 = stats.j1.c[cat], c2 = stats.j2.c[cat], p1 = stats.j1.t ? (c1/stats.j1.t*100).toFixed(1) : 0, p2 = stats.j2.t ? (c2/stats.j2.t*100).toFixed(1) : 0;
         const tags = userGroups.filter(g => g.cats.includes(cat)).map(g => `<span class="tag-group">${g.name}</span>`).join("");
@@ -125,6 +127,16 @@ function update() {
 
     document.getElementById('totTxt').innerText = `J1: ${stats.j1.t} | J2: ${stats.j2.t}`;
     updateCharts(stats);
+}
+
+// Nueva función para propagar la selección del grupo a sus categorías
+function toggleGroup(el, p, idx) {
+    const isChecked = el.checked;
+    userGroups[idx].cats.forEach(cat => {
+        // Busca el checkbox de la categoría específica y copia el estado del grupo
+        const catBox = document.querySelector(`.f-${p}[data-cat="${cat}"]`);
+        if(catBox) catBox.checked = isChecked;
+    });
 }
 
 function initCharts() {
@@ -203,10 +215,12 @@ function createGroup() {
 
 function applyFilters() {
     lastSnap = JSON.stringify(playerCombos);
+    // MODIFICADO: Solo tomamos los checkboxes de categorías individuales.
+    // Como el grupo ahora funciona como un "Select All" visual, ya no necesitamos sumar las categorías del grupo aquí,
+    // porque ya estarán marcadas visualmente en los checkboxes individuales.
     let f1 = Array.from(document.querySelectorAll('.f-j1:checked')).map(i=>i.dataset.cat);
     let f2 = Array.from(document.querySelectorAll('.f-j2:checked')).map(i=>i.dataset.cat);
-    document.querySelectorAll('.f-j1-g:checked').forEach(i => f1 = f1.concat(userGroups[i.dataset.idx].cats));
-    document.querySelectorAll('.f-j2-g:checked').forEach(i => f2 = f2.concat(userGroups[i.dataset.idx].cats));
+    
     const pr=(p,f)=>{ if(!f.length)return; for(let id in playerCombos[p]){ playerCombos[p][id]=playerCombos[p][id].filter(c=>f.includes(getBestCategory(c,board))); if(!playerCombos[p][id].length) delete playerCombos[p][id]; }};
     pr('j1',f1); pr('j2',f2); sync(); update();
 }
