@@ -16,7 +16,6 @@
         .stripe-button:hover { filter: brightness(1.1); }
         .stripe-button:disabled { background-color: #444; cursor: not-allowed; }
 
-        /* Contenedor Inferior: Widget Clerk + Gestión Stripe */
         .footer-tools { margin-top: 30px; padding-top: 20px; border-top: 1px solid #222; display: flex; flex-direction: column; align-items: center; gap: 15px; }
         
         .manage-box { min-height: 30px; display: flex; align-items: center; justify-content: center; }
@@ -77,11 +76,24 @@
         await Clerk.load();
         
         if (!Clerk.user) {
-            // MODIFICACIÓN: Agregamos routing: 'virtual' para que el enlace 
-            // "Sign Up" funcione dentro del mismo componente sin recargar página.
-            Clerk.mountSignIn(document.getElementById('auth-content'), {
-                routing: 'virtual'
-            });
+            const authDiv = document.getElementById('auth-content');
+            // Detectamos si la URL tiene ?screen=signup
+            const urlParams = new URLSearchParams(window.location.search);
+            const screen = urlParams.get('screen');
+
+            if (screen === 'signup') {
+                // Montamos el REGISTRO
+                Clerk.mountSignUp(authDiv, {
+                    signInUrl: 'index.html', // El link "Sign In" recargará la página limpia
+                    afterSignUpUrl: 'index.html' // A donde ir tras registrarse
+                });
+            } else {
+                // Montamos el INICIO DE SESIÓN
+                Clerk.mountSignIn(authDiv, {
+                    signUpUrl: 'index.html?screen=signup', // El link "Sign Up" recargará con el parámetro
+                    afterSignInUrl: 'index.html' // A donde ir tras loguearse
+                });
+            }
         } else {
             checkStatus();
         }
@@ -89,7 +101,6 @@
 
     async function checkStatus() {
         await Clerk.user.reload();
-        // Verificamos si existen los metadatos antes de intentar leerlos para evitar errores
         const metadata = Clerk.user.publicMetadata || {};
         const status = metadata.status;
         const stripeCustomerId = metadata.stripeCustomerId;
@@ -101,22 +112,18 @@
             afterSignOutUrl: window.location.href 
         });
 
-        // Caso: Suscripción Activa
         if (status === 'active') {
             document.getElementById('access-section').style.display = 'block';
             document.getElementById('payment-section').style.display = 'none';
         } else {
-            // Caso: Sin suscripción
             document.getElementById('access-section').style.display = 'none';
             document.getElementById('payment-section').style.display = 'flex';
         }
 
-        // Lógica del Botón de Gestión (siempre aparece si existe el cliente en Stripe)
         if (stripeCustomerId) {
             document.getElementById('manage-sync').style.display = 'none';
             document.getElementById('manage-link').style.display = 'inline-block';
         } else {
-            // Reintenta cada 2.5 segundos si no encuentra el ID de Stripe
             setTimeout(checkStatus, 2500); 
         }
     }
@@ -135,7 +142,7 @@
 
             const data = await response.json();
             if (data.url) window.location.href = data.url;
-            else throw new Error(data.error || "Error desconocido al crear checkout");
+            else throw new Error(data.error || "Error desconocido");
         } catch (err) {
             alert("Error: " + err.message);
             btn.disabled = false;
