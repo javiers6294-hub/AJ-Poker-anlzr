@@ -19,9 +19,9 @@ export default async function handler(req, res) {
 
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId, 
-      payment_method_types: ['card'],
+      automatic_payment_methods,
       line_items: [{
-        price: 'price_1SvLP9EqI6UldDzdVz6V9API', // Reemplaza con tu price_...
+        price: 'price_1T0sB4EqI6UldDzdCFpjGaO0', // Reemplaza con tu price_...
         quantity: 1,
       }],
       mode: 'subscription',
