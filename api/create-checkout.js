@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       line_items: [{
         // CAMBIO 2: ¡AQUÍ DEBES PEGAR TU NUEVO ID DE PRECIO!
         // Ve a Stripe > Catálogo > Tu Producto > Precios > Copiar ID (price_...)
-        price: 'AQUI_PEGA_TU_NUEVO_PRICE_ID', 
+        price: 'price_1T0sB4EqI6UldDzdCFpjGaO0', 
         quantity: 1,
       }],
       mode: 'subscription',
