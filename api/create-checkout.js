@@ -18,14 +18,21 @@ export default async function handler(req, res) {
     }
 
     const session = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId, 
+      customer: stripeCustomerId,
+      
+      // CAMBIO 1: Habilitar métodos automáticos (necesario para cambio de moneda)
       automatic_payment_methods: { enabled: true },
+      
+      // ELIMINAR O COMENTAR ESTA LÍNEA ANTIGUA:
+      // payment_method_types: ['card'],
+
       line_items: [{
-        price: 'price_1T0sB4EqI6UldDzdCFpjGaO0', // Reemplaza con tu price_...
+        // CAMBIO 2: ¡AQUÍ DEBES PEGAR TU NUEVO ID DE PRECIO!
+        // Ve a Stripe > Catálogo > Tu Producto > Precios > Copiar ID (price_...)
+        price: 'AQUI_PEGA_TU_NUEVO_PRICE_ID', 
         quantity: 1,
       }],
       mode: 'subscription',
-      // Esto obliga a Stripe a pedir la tarjeta aunque el total inicial sea $0
       payment_method_collection: 'always', 
       success_url: `${req.headers.origin}/app.html`,
       cancel_url: `${req.headers.origin}/index.html`,
