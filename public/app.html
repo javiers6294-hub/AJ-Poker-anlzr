@@ -6,7 +6,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <style>
-        /* ESTILOS ORIGINALES (Intactos para no romper las barras) */
+        /* ESTILOS ORIGINALES */
         :root { --bg: #080808; --panel: #121212; --accent: #f1c40f; --j1: #2ecc71; --j2: #3498db; --danger: #e74c3c; --card-shadow: 0 2px 5px rgba(0,0,0,0.5); }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: #ececec; margin: 0; display: flex; height: 100vh; overflow: hidden; }
         .sidebar { width: 280px; background: var(--panel); border-right: 1px solid #222; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
@@ -87,7 +87,9 @@
             <div id="brd" style="display:flex; gap:10px; justify-content:center; margin-bottom:20px; height:65px;"></div>
             <div id="deck" style="display:grid; grid-template-columns: repeat(13, 1fr); gap:3px; padding:8px; background:#1a1a1a; border-radius:8px; border:1px solid #333;"></div>
             <h2 id="totTxt" style="color:var(--accent); font-family: 'Courier New', monospace; margin: 20px 0;">J1: 0 | J2: 0</h2>
-            <button class="btn-pro" style="background:#222; border:1px solid #444; width:100%;" onclick="openH()">⚙️ EDITAR JERARQUÍA</button>
+            
+            <button class="btn-pro" style="background:#222; border:1px solid #444; width:100%; margin-bottom: 8px;" onclick="openH()">⚙️ EDITAR JERARQUÍA</button>
+            <button class="btn-pro btn-danger" style="width:100%;" onclick="clearTable()">🗑️ LIMPIAR MESA (RANGOS + BOARD)</button>
         </div>
 
         <div style="display:flex; flex-direction:column; align-items:center;">
@@ -121,7 +123,6 @@
 <script>
     /**
      * SISTEMA DE BLINDAJE DE SESIÓN
-     * Protege el funcionamiento del motor de póker frente a cambios de sesión.
      */
     (function() {
         window.addEventListener('load', async function() {
@@ -139,13 +140,12 @@
                     afterSignOutUrl: window.location.origin + '/index.html'
                 });
 
-                // 3. Listener de Sesión (Inmune a cambios en script.js)
+                // 3. Listener de Sesión
                 Clerk.addListener(({ user }) => {
                     if (!user) window.location.href = 'index.html';
                 });
 
                 // 4. LANZAMIENTO SEGURO DEL MOTOR DE PÓKER
-                // Solo cargamos el script de lógica después de validar la sesión
                 const pokerScript = document.createElement('script');
                 pokerScript.src = "script.js";
                 document.body.appendChild(pokerScript);
